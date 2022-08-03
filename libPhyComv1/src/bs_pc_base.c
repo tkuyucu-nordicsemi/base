@@ -186,29 +186,29 @@ static void remove_lock_file(char** file_path){
   }
 }
 
-static int phy_test_and_create_lock_file(pb_phy_state_t *this, const char *phy_id){
+static int phy_test_and_create_lock_file(pb_phy_state_t *self, const char *phy_id){
   int flen = pb_com_path_length + 20 + strlen(phy_id);
-  this->lock_path = (char*) bs_calloc(flen, sizeof(char));
-  sprintf(this->lock_path, "%s/%s.phy.lock", pb_com_path, phy_id);
+  self->lock_path = (char*) bs_calloc(flen, sizeof(char));
+  sprintf(self->lock_path, "%s/%s.phy.lock", pb_com_path, phy_id);
 
-  int ret = test_and_create_lock_file(this->lock_path);
+  int ret = test_and_create_lock_file(self->lock_path);
   if (ret) {
-    free(this->lock_path);
-    this->lock_path = NULL;
+    free(self->lock_path);
+    self->lock_path = NULL;
   }
   return ret;
 }
 
-static int device_test_and_create_lock_file(pb_dev_state_t *this, const char *phy_id, unsigned int dev_nbr){
+static int device_test_and_create_lock_file(pb_dev_state_t *self, const char *phy_id, unsigned int dev_nbr){
   int flen = pb_com_path_length + 20 + strlen(phy_id) + bs_number_strlen(dev_nbr);
 
-  this->lock_path = (char*) bs_calloc(flen, sizeof(char));
+  self->lock_path = (char*) bs_calloc(flen, sizeof(char));
 
-  sprintf(this->lock_path, "%s/%s.d%i.lock", pb_com_path, phy_id, dev_nbr);
-  int ret = test_and_create_lock_file(this->lock_path);
+  sprintf(self->lock_path, "%s/%s.d%i.lock", pb_com_path, phy_id, dev_nbr);
+  int ret = test_and_create_lock_file(self->lock_path);
   if (ret) {
-    free(this->lock_path);
-    this->lock_path = NULL;
+    free(self->lock_path);
+    self->lock_path = NULL;
   }
   return ret;
 }
@@ -218,7 +218,7 @@ static int device_test_and_create_lock_file(pb_dev_state_t *this, const char *ph
  * Initialize the communication with the devices:
  *
  * inputs:
- *  this Pointer to structure where the connection status will be kept.
+ *  self Pointer to structure where the connection status will be kept.
  *        MUST be initialized with zeroes.
  *  s    String identifying the simulation
  *  p    String identifying this phy in this simulation
@@ -227,81 +227,81 @@ static int device_test_and_create_lock_file(pb_dev_state_t *this, const char *ph
  * returns:
  *   0 if ok. Any other number on error
  */
-int pb_phy_initcom(pb_phy_state_t *this, const char* s, const char *p, uint n) {
+int pb_phy_initcom(pb_phy_state_t *self, const char* s, const char *p, uint n) {
 
   signal(SIGPIPE, SIG_IGN);
 
-  if (this->device_connected) {
+  if (self->device_connected) {
     bs_trace_warning_line("%s called twice in a simulation\n", __func__);
     return -1;
   }
 
   pb_com_path_length = pb_create_com_folder(s);
 
-  this->device_connected = NULL;
-  this->lock_path = NULL;
+  self->device_connected = NULL;
+  self->lock_path = NULL;
 
-  if ( phy_test_and_create_lock_file(this, p) ) {
+  if ( phy_test_and_create_lock_file(self, p) ) {
     return -1;
   }
 
-  this->n_devices = n;
-  this->device_connected = (bool *) bs_calloc(n, sizeof(bool));
-  this->ff_path_dtp = (char **) bs_calloc(n, sizeof(char *));
-  this->ff_path_ptd = (char **) bs_calloc(n, sizeof(char *));
-  this->ff_dtp = (int *) bs_calloc(n, sizeof(int *));
-  this->ff_ptd = (int *) bs_calloc(n, sizeof(int *));
+  self->n_devices = n;
+  self->device_connected = (bool *) bs_calloc(n, sizeof(bool));
+  self->ff_path_dtp = (char **) bs_calloc(n, sizeof(char *));
+  self->ff_path_ptd = (char **) bs_calloc(n, sizeof(char *));
+  self->ff_dtp = (int *) bs_calloc(n, sizeof(int *));
+  self->ff_ptd = (int *) bs_calloc(n, sizeof(int *));
 
-  for (int d = 0; d < this->n_devices; d++) {
+  for (int d = 0; d < self->n_devices; d++) {
     int flen = pb_com_path_length + 30 + strlen(p) + bs_number_strlen(d);
-    this->ff_path_dtp[d] = (char *)bs_calloc(flen, sizeof(char));
-    this->ff_path_ptd[d] = (char *)bs_calloc(flen, sizeof(char));
-    sprintf(this->ff_path_dtp[d], "%s/%s.d%i.dtp", pb_com_path, p, d);
-    sprintf(this->ff_path_ptd[d], "%s/%s.d%i.ptd", pb_com_path, p, d);
+    self->ff_path_dtp[d] = (char *)bs_calloc(flen, sizeof(char));
+    self->ff_path_ptd[d] = (char *)bs_calloc(flen, sizeof(char));
+    sprintf(self->ff_path_dtp[d], "%s/%s.d%i.dtp", pb_com_path, p, d);
+    sprintf(self->ff_path_ptd[d], "%s/%s.d%i.ptd", pb_com_path, p, d);
 
-    if ((pb_create_fifo_if_not_there(this->ff_path_dtp[d]) != 0)
-        || (pb_create_fifo_if_not_there(this->ff_path_ptd[d]) != 0)) {
-      pb_phy_disconnect_devices(this);
+    if ((pb_create_fifo_if_not_there(self->ff_path_dtp[d]) != 0)
+        || (pb_create_fifo_if_not_there(self->ff_path_ptd[d]) != 0)) {
+      pb_phy_disconnect_devices(self);
       bs_trace_error_line("Could not create FIFOs to device %i\n", d);
     }
 
-    if ((this->ff_ptd[d] = open(this->ff_path_ptd[d], O_WRONLY)) == -1) {
-      this->ff_ptd[d] = 0;
-      pb_phy_disconnect_devices(this);
+    if ((self->ff_ptd[d] = open(self->ff_path_ptd[d], O_WRONLY)) == -1) {
+      self->ff_ptd[d] = 0;
+      pb_phy_disconnect_devices(self);
       bs_trace_error_line("Opening FIFO from phy to device %i failed\n", d);
     }
-    if ((this->ff_dtp[d] = open(this->ff_path_dtp[d], O_RDONLY)) == -1) {
-      this->ff_dtp[d] = 0;
-      pb_phy_disconnect_devices(this);
+    if ((self->ff_dtp[d] = open(self->ff_path_dtp[d], O_RDONLY)) == -1) {
+      self->ff_dtp[d] = 0;
+      pb_phy_disconnect_devices(self);
       bs_trace_error_line("Opening FIFO from device %i to phy failed\n", d);
     }
 
-    this->device_connected[d] = true;
+    self->device_connected[d] = true;
   }
 
   return 0;
 }
 
-void pb_phy_free_one_device(pb_phy_state_t *this, int d) {
-  if (this->ff_dtp[d]) {
-    close(this->ff_dtp[d]);
-    this->ff_dtp[d] = 0;
+void pb_phy_free_one_device(pb_phy_state_t *self, int d) {
+  if (self->ff_dtp[d]) {
+    close(self->ff_dtp[d]);
+    self->ff_dtp[d] = 0;
   }
-  if (this->ff_path_dtp[d]) {
-    remove(this->ff_path_dtp[d]);
-    free(this->ff_path_dtp[d]);
-    this->ff_path_dtp[d] = NULL;
+  if (self->ff_path_dtp[d]) {
+    remove(self->ff_path_dtp[d]);
+    free(self->ff_path_dtp[d]);
+    self->ff_path_dtp[d] = NULL;
   }
-  if (this->ff_ptd[d]) {
-    close(this->ff_ptd[d]);
-    this->ff_ptd[d] = 0;
+  if (self->ff_ptd[d]) {
+    close(self->ff_ptd[d]);
+    self->ff_ptd[d] = 0;
   }
-  if (this->ff_path_ptd[d]) {
-    remove(this->ff_path_ptd[d]);
-    free(this->ff_path_ptd[d]);
-    this->ff_path_ptd[d] = NULL;
+  if (self->ff_path_ptd[d]) {
+    remove(self->ff_path_ptd[d]);
+    free(self->ff_path_ptd[d]);
+    self->ff_path_ptd[d] = NULL;
   }
-  this->device_connected[d] = false;
+  self->device_connected[d] = false;
 }
 
 /**
@@ -310,15 +310,15 @@ void pb_phy_free_one_device(pb_phy_state_t *this, int d) {
  *
  * It is safe to call this function multiple times
  */
-void pb_phy_disconnect_devices(pb_phy_state_t *this) {
+void pb_phy_disconnect_devices(pb_phy_state_t *self) {
 
-  if (this->device_connected != NULL) {
+  if (self->device_connected != NULL) {
     pc_header_t header = PB_MSG_DISCONNECT;
-    for (int d = 0; d < this->n_devices; d++) {
-      if (this->ff_ptd[d]) {
-        write(this->ff_ptd[d], &header, sizeof(header));
+    for (int d = 0; d < self->n_devices; d++) {
+      if (self->ff_ptd[d]) {
+        write(self->ff_ptd[d], &header, sizeof(header));
       }
-      pb_phy_free_one_device(this, d);
+      pb_phy_free_one_device(self, d);
     }
 
     if (pb_com_path) {
@@ -327,36 +327,36 @@ void pb_phy_disconnect_devices(pb_phy_state_t *this) {
       pb_com_path = NULL;
     }
 
-    if (this->device_connected) {
-      free(this->device_connected);
-      this->device_connected = NULL;
+    if (self->device_connected) {
+      free(self->device_connected);
+      self->device_connected = NULL;
     }
-    if (this->ff_path_dtp) {
-      free(this->ff_path_dtp);
-      this->ff_path_dtp = NULL;
+    if (self->ff_path_dtp) {
+      free(self->ff_path_dtp);
+      self->ff_path_dtp = NULL;
     }
-    if (this->ff_dtp) {
-      free(this->ff_dtp);
-      this->ff_dtp = NULL;
+    if (self->ff_dtp) {
+      free(self->ff_dtp);
+      self->ff_dtp = NULL;
     }
-    if (this->ff_path_ptd) {
-      free(this->ff_path_ptd);
-      this->ff_path_ptd = NULL;
+    if (self->ff_path_ptd) {
+      free(self->ff_path_ptd);
+      self->ff_path_ptd = NULL;
     }
-    if (this->ff_ptd) {
-      free(this->ff_ptd);
-      this->ff_ptd = NULL;
+    if (self->ff_ptd) {
+      free(self->ff_ptd);
+      self->ff_ptd = NULL;
     }
   }
-  remove_lock_file(&this->lock_path);
+  remove_lock_file(&self->lock_path);
 }
 
 /**
  * Check if we are connected to this device (or any device)
  * Return 1 if we are
  */
-int pb_phy_is_connected_to_device(pb_phy_state_t *this, uint d){
-  if ((this->device_connected == NULL) || (!this->device_connected[d])) {
+int pb_phy_is_connected_to_device(pb_phy_state_t *self, uint d){
+  if ((self->device_connected == NULL) || (!self->device_connected[d])) {
     bs_trace_error_line("Programming error while trying to talk to device %i\n", d);
     return 0;
   }
@@ -366,36 +366,36 @@ int pb_phy_is_connected_to_device(pb_phy_state_t *this, uint d){
 /**
  * Respond to the device at the end of wait
  */
-void pb_phy_resp_wait(pb_phy_state_t *this, uint d) {
-  if ( pb_phy_is_connected_to_device(this, d) ) {
+void pb_phy_resp_wait(pb_phy_state_t *self, uint d) {
+  if ( pb_phy_is_connected_to_device(self, d) ) {
     pc_header_t header = PB_MSG_WAIT_END;
-    write(this->ff_ptd[d], &header, sizeof(header));
+    write(self->ff_ptd[d], &header, sizeof(header));
   }
 }
 
 /**
  * Get (and return) the next request from this device
  */
-pc_header_t pb_phy_get_next_request(pb_phy_state_t *this, uint d) {
+pc_header_t pb_phy_get_next_request(pb_phy_state_t *self, uint d) {
   pc_header_t header = PB_MSG_DISCONNECT;
 
-  if ( pb_phy_is_connected_to_device(this, d) ) {
-    int n = read(this->ff_dtp[d], &header, sizeof(header));
+  if ( pb_phy_is_connected_to_device(self, d) ) {
+    int n = read(self->ff_dtp[d], &header, sizeof(header));
     if (n < sizeof(header)) {
       bs_trace_warning_line("Device %u left the party unsuspectingly.. I treat it as if it disconnected\n", d);
     }
 
     if ((header == PB_MSG_DISCONNECT) || (header == PB_MSG_TERMINATE)) {
       //if the read failed or the device really wants to disconnect
-      pb_phy_free_one_device(this, d);
+      pb_phy_free_one_device(self, d);
     }
   }
   return header;
 }
 
-void pb_phy_get_wait_s(pb_phy_state_t *this, uint d, pb_wait_t *wait_s) {
-  if ( pb_phy_is_connected_to_device(this, d) ) {
-    read(this->ff_dtp[d], wait_s, sizeof(pb_wait_t));
+void pb_phy_get_wait_s(pb_phy_state_t *self, uint d, pb_wait_t *wait_s) {
+  if ( pb_phy_is_connected_to_device(self, d) ) {
+    read(self->ff_dtp[d], wait_s, sizeof(pb_wait_t));
   }
 }
 
@@ -403,7 +403,7 @@ void pb_phy_get_wait_s(pb_phy_state_t *this, uint d, pb_wait_t *wait_s) {
  * Initialize the communication interface with the phy
  *
  * inputs:
- *  this  Pointer to structure where the connection status will be keps.
+ *  self  Pointer to structure where the connection status will be keeps.
  *         MUST be initialized with zeroes.
  *  d     The device number this device will have in this phy
  *  s     String identifying the simulation
@@ -412,55 +412,55 @@ void pb_phy_get_wait_s(pb_phy_state_t *this, uint d, pb_wait_t *wait_s) {
  * returns:
  *   0 if ok. Any other number on error
  */
-int pb_dev_init_com(pb_dev_state_t *this, uint d, const char* s, const char *p) {
+int pb_dev_init_com(pb_dev_state_t *self, uint d, const char* s, const char *p) {
 
-  if (this->connected) {
+  if (self->connected) {
     bs_trace_warning_line("%s called twice in a simulation\n", __func__);
     return -1;
   }
 
   /* In case we fail, we initialize them to "invalid" content*/
-  this->ff_path_dtp = NULL;
-  this->ff_path_ptd = NULL;
+  self->ff_path_dtp = NULL;
+  self->ff_path_ptd = NULL;
 
-  this->ff_ptd = 0; /*0 == stdin == not one we would have used */
-  this->ff_dtp = 0;
+  self->ff_ptd = 0; /*0 == stdin == not one we would have used */
+  self->ff_dtp = 0;
 
   if ((s == NULL) || (p  == NULL)) {
     bs_trace_error_line("The simulation and phy identification strings need to be provided\n");
   }
 
-  this->this_dev_nbr = d;
+  self->this_dev_nbr = d;
   pb_com_path_length = pb_create_com_folder(s);
 
-  if ( device_test_and_create_lock_file(this, p, d) ) {
+  if ( device_test_and_create_lock_file(self, p, d) ) {
     bs_trace_error_line("Failed to get lock\n");
   }
 
   int flen = pb_com_path_length + strlen(p) + bs_number_strlen(d) + 30;
-  this->ff_path_dtp = (char *) bs_calloc(flen, sizeof(char));
-  this->ff_path_ptd = (char *) bs_calloc(flen, sizeof(char));
-  sprintf(this->ff_path_dtp, "%s/%s.d%i.dtp", pb_com_path, p, d);
-  sprintf(this->ff_path_ptd, "%s/%s.d%i.ptd", pb_com_path, p, d);
+  self->ff_path_dtp = (char *) bs_calloc(flen, sizeof(char));
+  self->ff_path_ptd = (char *) bs_calloc(flen, sizeof(char));
+  sprintf(self->ff_path_dtp, "%s/%s.d%i.dtp", pb_com_path, p, d);
+  sprintf(self->ff_path_ptd, "%s/%s.d%i.ptd", pb_com_path, p, d);
 
-  if ((pb_create_fifo_if_not_there(this->ff_path_dtp) != 0)
-      || (pb_create_fifo_if_not_there(this->ff_path_ptd) != 0)) {
-    pb_dev_clean_up(this);
+  if ((pb_create_fifo_if_not_there(self->ff_path_dtp) != 0)
+      || (pb_create_fifo_if_not_there(self->ff_path_ptd) != 0)) {
+    pb_dev_clean_up(self);
     bs_trace_error_line("Could not create FIFOs");
   }
 
-  if (((this->ff_ptd = open(this->ff_path_ptd, O_RDONLY )) == -1)) {
-    this->ff_ptd = 0;
-    pb_dev_clean_up(this);
+  if (((self->ff_ptd = open(self->ff_path_ptd, O_RDONLY )) == -1)) {
+    self->ff_ptd = 0;
+    pb_dev_clean_up(self);
     bs_trace_error_line("Opening FIFO from phy to device failed\n");
   }
-  if (((this->ff_dtp = open(this->ff_path_dtp, O_WRONLY )) == -1)) {
-    this->ff_dtp = 0;
-    pb_dev_clean_up(this);
+  if (((self->ff_dtp = open(self->ff_path_dtp, O_WRONLY )) == -1)) {
+    self->ff_dtp = 0;
+    pb_dev_clean_up(self);
     bs_trace_error_line("Opening FIFO from device to phy failed\n");
   }
 
-  this->connected = true;
+  self->connected = true;
   is_base_com_initialized = true;
   return 0;
 }
@@ -468,24 +468,24 @@ int pb_dev_init_com(pb_dev_state_t *this, uint d, const char* s, const char *p) 
 /**
  * Attempt to terminate the simulation and disconnect
  */
-void pb_dev_terminate(pb_dev_state_t *this) {
-  if (this->connected) {
+void pb_dev_terminate(pb_dev_state_t *self) {
+  if (self->connected) {
     pc_header_t header = PB_MSG_TERMINATE;
 
-    write(this->ff_dtp, &header, sizeof(header));
-    pb_dev_clean_up(this);
+    write(self->ff_dtp, &header, sizeof(header));
+    pb_dev_clean_up(self);
   }
 }
 
 /**
  * Disconnect from the phy
  */
-void pb_dev_disconnect(pb_dev_state_t *this) {
-  if (this->connected) {
+void pb_dev_disconnect(pb_dev_state_t *self) {
+  if (self->connected) {
     pc_header_t header = PB_MSG_DISCONNECT;
 
-    write(this->ff_dtp, &header, sizeof(header));
-    pb_dev_clean_up(this);
+    write(self->ff_dtp, &header, sizeof(header));
+    pb_dev_clean_up(self);
   }
 }
 
@@ -494,31 +494,31 @@ void pb_dev_disconnect(pb_dev_state_t *this) {
  *
  * It is safe to call this function (unnecessarily) several times
  */
-void pb_dev_clean_up(pb_dev_state_t *this) {
+void pb_dev_clean_up(pb_dev_state_t *self) {
 
-  remove_lock_file(&this->lock_path);
+  remove_lock_file(&self->lock_path);
 
-  this->connected = false; //we don't want any possible future call to libphycom to attempt to talk with the phy
+  self->connected = false; //we don't want any possible future call to libphycom to attempt to talk with the phy
 
-  if (this->ff_path_dtp) {
-    if (this->ff_dtp) {
-      close(this->ff_dtp);
-      this->ff_dtp = 0;
+  if (self->ff_path_dtp) {
+    if (self->ff_dtp) {
+      close(self->ff_dtp);
+      self->ff_dtp = 0;
     }
 
-    remove(this->ff_path_dtp);
-    free(this->ff_path_dtp);
-    this->ff_path_dtp = NULL;
+    remove(self->ff_path_dtp);
+    free(self->ff_path_dtp);
+    self->ff_path_dtp = NULL;
   }
 
-  if (this->ff_path_ptd) {
-    if (this->ff_ptd) {
-      close(this->ff_ptd);
-      this->ff_ptd = 0;
+  if (self->ff_path_ptd) {
+    if (self->ff_ptd) {
+      close(self->ff_ptd);
+      self->ff_ptd = 0;
     }
-    remove(this->ff_path_ptd);
-    free(this->ff_path_ptd);
-    this->ff_path_ptd = NULL;
+    remove(self->ff_path_ptd);
+    free(self->ff_path_ptd);
+    self->ff_path_ptd = NULL;
   }
 
   if (pb_com_path != NULL) {
@@ -533,17 +533,17 @@ void pb_dev_clean_up(pb_dev_state_t *this) {
  * returns -1 on failure (it can't read n_bytes, and cleans up),
  * otherwise returns n_bytes
  */
-int pb_dev_read(pb_dev_state_t *this, void *buf, size_t n_bytes) {
+int pb_dev_read(pb_dev_state_t *self, void *buf, size_t n_bytes) {
   int read_b;
 
-  read_b = read(this->ff_ptd, buf, n_bytes);
+  read_b = read(self->ff_ptd, buf, n_bytes);
 
   if (n_bytes == read_b) {
     return read_b;
   }
 
   bs_trace_warning_line(COM_FAILED_ERROR " (tried to get %i got %i bytes)\n", n_bytes, read_b);
-  pb_dev_clean_up(this);
+  pb_dev_clean_up(self);
   return -1;
 }
 
@@ -552,9 +552,9 @@ int pb_dev_read(pb_dev_state_t *this, void *buf, size_t n_bytes) {
  * Note that eventually the caller needs to pick the wait response
  * from the phy with cb_dev_pick_wait_resp()
  */
-int pb_dev_request_wait_nonblock(pb_dev_state_t *this, pb_wait_t *wait_s) {
-  CHECK_CONNECTED(this->connected);
-  pb_send_msg(this->ff_dtp, PB_MSG_WAIT, (void *)wait_s, sizeof(pb_wait_t));
+int pb_dev_request_wait_nonblock(pb_dev_state_t *self, pb_wait_t *wait_s) {
+  CHECK_CONNECTED(self->connected);
+  pb_send_msg(self->ff_dtp, PB_MSG_WAIT, (void *)wait_s, sizeof(pb_wait_t));
   return 0;
 }
 
@@ -564,17 +564,17 @@ int pb_dev_request_wait_nonblock(pb_dev_state_t *this, pb_wait_t *wait_s) {
  * requested end time and 0 is returned
  * Otherwise, we should disconnect (-1 will be returned)
  */
-int pb_dev_pick_wait_resp(pb_dev_state_t *this) {
-  CHECK_CONNECTED(this->connected);
+int pb_dev_pick_wait_resp(pb_dev_state_t *self) {
+  CHECK_CONNECTED(self->connected);
 
   pc_header_t header = PB_MSG_DISCONNECT;
 
-  if (pb_dev_read(this, &header, sizeof(header)) == -1) {
+  if (pb_dev_read(self, &header, sizeof(header)) == -1) {
     return -1;
   }
 
   if (header == PB_MSG_DISCONNECT) {
-    pb_dev_clean_up(this);
+    pb_dev_clean_up(self);
     return -1;
   } else if (header == PB_MSG_WAIT_END) {
     return 0;
@@ -590,11 +590,11 @@ int pb_dev_pick_wait_resp(pb_dev_state_t *this) {
  *
  * Otherwise, we should disconnect (-1 will be returned)
  */
-int pb_dev_request_wait_block(pb_dev_state_t *this, pb_wait_t *wait_s) {
-  CHECK_CONNECTED(this->connected);
+int pb_dev_request_wait_block(pb_dev_state_t *self, pb_wait_t *wait_s) {
+  CHECK_CONNECTED(self->connected);
   int ret;
-  ret = pb_dev_request_wait_nonblock(this, wait_s);
+  ret = pb_dev_request_wait_nonblock(self, wait_s);
   if (ret)
     return ret;
-  return pb_dev_pick_wait_resp(this);
+  return pb_dev_pick_wait_resp(self);
 }

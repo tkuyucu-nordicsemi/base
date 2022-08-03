@@ -32,13 +32,13 @@ typedef struct {
   char *lock_path;
 } pb_phy_state_t;
 
-int pb_phy_is_connected_to_device(pb_phy_state_t * this, uint d);
-int pb_phy_initcom(pb_phy_state_t *this, const char* s, const char *p, uint n);
-void pb_phy_disconnect_devices(pb_phy_state_t *this);
-pc_header_t pb_phy_get_next_request(pb_phy_state_t *this, uint d);
-void pb_phy_get_wait_s(pb_phy_state_t *this, uint d, pb_wait_t *wait_s);
-void pb_phy_resp_wait(pb_phy_state_t *this, uint d);
-void pb_phy_free_one_device(pb_phy_state_t *this, int d);
+int pb_phy_is_connected_to_device(pb_phy_state_t * self, uint d);
+int pb_phy_initcom(pb_phy_state_t *self, const char* s, const char *p, uint n);
+void pb_phy_disconnect_devices(pb_phy_state_t *self);
+pc_header_t pb_phy_get_next_request(pb_phy_state_t *self, uint d);
+void pb_phy_get_wait_s(pb_phy_state_t *self, uint d, pb_wait_t *wait_s);
+void pb_phy_resp_wait(pb_phy_state_t *self, uint d);
+void pb_phy_free_one_device(pb_phy_state_t *self, int d);
 
 typedef struct {
   int ff_dtp;
@@ -50,14 +50,14 @@ typedef struct {
   char *lock_path;
 } pb_dev_state_t;
 
-int pb_dev_init_com(pb_dev_state_t *this, uint d, const char* s, const char *p);
-void pb_dev_disconnect(pb_dev_state_t *this);
-void pb_dev_terminate(pb_dev_state_t *this);
-void pb_dev_clean_up(pb_dev_state_t *this);
-int pb_dev_read(pb_dev_state_t *this, void *buf, size_t n_bytes);
-int pb_dev_request_wait_block(pb_dev_state_t *this, pb_wait_t *wait_s);
-int pb_dev_request_wait_nonblock(pb_dev_state_t *this, pb_wait_t *wait_s);
-int pb_dev_pick_wait_resp(pb_dev_state_t *this);
+int pb_dev_init_com(pb_dev_state_t *self, uint d, const char* s, const char *p);
+void pb_dev_disconnect(pb_dev_state_t *self);
+void pb_dev_terminate(pb_dev_state_t *self);
+void pb_dev_clean_up(pb_dev_state_t *self);
+int pb_dev_read(pb_dev_state_t *self, void *buf, size_t n_bytes);
+int pb_dev_request_wait_block(pb_dev_state_t *self, pb_wait_t *wait_s);
+int pb_dev_request_wait_nonblock(pb_dev_state_t *self, pb_wait_t *wait_s);
+int pb_dev_pick_wait_resp(pb_dev_state_t *self);
 
 BSIM_INLINE void pb_send_msg(int ff, pc_header_t header,
                              void *s, size_t s_size) {
