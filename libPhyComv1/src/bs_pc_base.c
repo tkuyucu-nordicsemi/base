@@ -47,12 +47,15 @@ int pb_create_com_folder(const char *s) {
   char *UserName;
   int UserNameLength = 0;
   struct passwd *pw;
+  char str_buf[32];
 
   pw = getpwuid(geteuid());
   if (pw != NULL) {
     UserName = pw->pw_name;
   } else {
-    bs_trace_error_line("Couldn't get the user name to build the tmp path for the interprocess comm (this shouldn't have happened)\n");
+    sprintf(str_buf, "%d", geteuid());
+    UserName = &str_buf[0];
+    bs_trace_warning_line("Couldn't get the user name for euid %lu to build the tmp path for the interprocess comm (this shouldn't have happened), using euid instead\n", geteuid());
   }
 
   UserNameLength = strlen(UserName);
